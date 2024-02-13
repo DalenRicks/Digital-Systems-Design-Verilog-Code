@@ -1,0 +1,140 @@
+`timescale 1ns  1ps
+
+module vga_top(clk, vga_vsync, vga_hsync, red, green, blue);
+    input clk;
+    output vga_vsync, vga_hsync;
+    output [30] red,green,blue; 4 bits of RGB color
+    
+    wire inDisplay, slow_clk;
+    wire [90] x_pos; 800 = 640 + 96 + 16 + 48
+    wire [90] y_pos; 525  = 480 + 2
+
+    vga_sync v1(.clk(clk),.hsync(vga_hsync),.vsync(vga_vsync),.xCount(x_pos), .yCount(y_pos),.inDisplay(inDisplay)); fill in the parameters
+    
+    reg [20] display_rgb; r = 0, g = 1, b = 2;
+    reg [10] state;
+    
+    initial begin
+        state = 2'b00;
+    end
+    clk_div sC(clk, slow_clk);
+    
+    always @(posedge slow_clk) begin
+        if(state == 2'b11) begin
+            state = 2'b00;
+        end else begin
+            state = state + 1'b1;
+        end
+    end
+
+    always @(posedge slow_clk) begin
+        case(state)
+            2'b00 begin
+                display_rgb[0] = 1'b1;
+                display_rgb[1] = 1'b0;
+                display_rgb[2] = 1'b0;
+                state = 2'b01;
+            end
+                
+            2'b01 begin
+                display_rgb[0] = 1'b0;
+                display_rgb[1] = 1'b1;
+                display_rgb[2] = 1'b0;
+                state = 2'b10;
+                
+            end
+            2'b10 begin
+                display_rgb[0] = 1'b0;
+                display_rgb[1] = 1'b0;
+                display_rgb[2] = 1'b1;
+                state = 2'b00;
+                      
+            end
+            default begin
+                display_rgb[0] = 1'b1;
+                display_rgb[1] = 1'b1;
+                display_rgb[2] = 1'b0;
+                
+            end
+        endcase
+    end
+
+
+    fill in conditions here. When do you want a color to display Remember to also consider the display area!
+    assign red = (inDisplay && display_rgb[0])  4'hF  4'h0;
+    assign green = (inDisplay && display_rgb[1])  4'hF  4'h0;
+    assign blue = (inDisplay && display_rgb[2])  4'hF  4'h0;
+    
+    
+
+endmodule
+
+module vga_sync(
+    clk, hsync, vsync, xCount, yCount, inDisplay
+    );
+    
+    input clk;
+    output vsync, hsync;
+    output inDisplay;
+    wire null;
+    output reg [90] xCount;
+    output reg [90] yCount;   
+    
+    
+    
+    initial begin
+        xCount = 10'h000;
+        yCount = 9'h000;
+    end
+    
+    
+    wire pixel_clk;
+    clk_wiz_0 clk1(pixel_clk,1'b0, null, clk); 
+    always @(posedge pixel_clk) begin
+        xCount = (xCount == 799)  (10'h000)  (xCount + 1'b1);
+    end
+    
+    always @(posedge pixel_clk) begin
+        if(yCount == 524) begin
+            yCount = 9'h000;
+        end else if(xCount == 799) begin
+            yCount = yCount + 1'b1;
+        end else begin
+            yCount = yCount;
+        end 
+    end
+    
+        assign hsync = ~((xCount = 656) && (xCount  751));
+        assign vsync = ~((yCount = 489) && (yCount  491));
+        assign inDisplay = (xCount  640) && (yCount  480);
+        
+
+endmodule
+
+
+
+module clk_div(clk, slow_clk);
+parameter size = 1000000000;  added to be used by test bench 
+input clk;
+output slow_clk;
+reg [310] c_out;
+reg slow_clk;
+initial begin	Note this will synthesize because we are using an FPGA and not making an IC
+	c_out= 32'h00000000;
+	slow_clk =0;
+end
+	
+this always block runs on the fast 100MHz clock
+always @(posedge clk) begin
+	c_out = c_out + 32'h00000001;
+		
+	if (c_out  size) begin
+		c_out = 32'h00000000;
+		slow_clk = ~slow_clk;
+		end
+	end
+
+endmodule
+
+
+
